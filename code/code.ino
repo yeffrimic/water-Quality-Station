@@ -101,6 +101,8 @@ const float UMBRAL_COLA_LLENA = 0.90;
 const int ADC_PH4  = 2523;
 const int ADC_PH7  = 2100;
 const int ADC_PH10 = 1973;
+const float PH_MIN_VALIDO = 0.0;
+const float PH_MAX_VALIDO = 14.0;
 
 // ---------- Objetos ----------
 Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -447,7 +449,10 @@ void leerSensores() {
     solicitudTempPendiente = false;
   }
 
-  datos.ph = leerPH();
+  float phLectura = leerPH();
+  if (phLectura >= PH_MIN_VALIDO && phLectura <= PH_MAX_VALIDO) {
+    datos.ph = phLectura;
+  }
 }
 
 float leerPH() {
