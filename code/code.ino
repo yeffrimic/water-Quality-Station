@@ -127,6 +127,8 @@ String macAddress;
 unsigned long previousMillis = 0;
 unsigned long mqttUltimoIntento = 0;
 const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
+unsigned long wifiUltimoIntento = 0;
+const unsigned long WIFI_REINTENTO_INTERVALO = 30000;
 unsigned long ultimaSolicitudTemp = 0;
 bool solicitudTempPendiente = false;
 unsigned long tiempoConversionDS18B20 = 750;
@@ -182,6 +184,8 @@ void setup() {
 void loop() {
   leerGPS();
   leerSensores();
+
+  reconectarWiFiSiHaceFalta();
 
   if (!client.connected()) reconnect();
   client.loop();
@@ -739,6 +743,18 @@ void enviarDatos() {
 void guardarLecturaEnCola() {
   String msg = construirMensajeCSV();
   encolarLectura(msg);
+}
+
+void reconectarWiFiSiHaceFalta() {
+  if (pantallaActual == PANTALLA_WIFI) return;
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  unsigned long ahora = millis();
+  if (ahora - wifiUltimoIntento < WIFI_REINTENTO_INTERVALO) return;
+  wifiUltimoIntento = ahora;
+
+  Serial.println(F("WiFi desconectado, reintentando..."));
+  WiFi.reconnect();
 }
 
 void reconnect() {
