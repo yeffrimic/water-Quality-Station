@@ -89,6 +89,8 @@ const char* AP_SSID    = "Lagos Abiertos";  // Red de configuración WiFi
 
 const char* ARCHIVO_PENDIENTES = "/pendientes.csv";
 const char* ARCHIVO_PENDIENTES_TMP = "/pendientes.tmp";
+const size_t MARGEN_MINIMO_LIBRE = 2048;
+const float UMBRAL_COLA_LLENA = 0.90;
 
 // Calibración pH (valores ADC medidos)
 const int ADC_PH4  = 2523;
@@ -470,6 +472,11 @@ void actualizarPantallaPendientes() {
     display.print(F("Sin pendientes"));
   }
 
+  if (colaCercaDeLlenarse()) {
+    display.setCursor(0, 40);
+    display.print(F("Cola casi llena!"));
+  }
+
   display.display();
 }
 
@@ -518,7 +525,21 @@ void manejarBotonNav() {
 // =====================================================
 //  COLA DE PENDIENTES (LittleFS)
 // =====================================================
+bool hayEspacioEnCola() {
+  size_t libre = LittleFS.totalBytes() - LittleFS.usedBytes();
+  return libre > MARGEN_MINIMO_LIBRE;
+}
+
+bool colaCercaDeLlenarse() {
+  return LittleFS.usedBytes() >= (LittleFS.totalBytes() * UMBRAL_COLA_LLENA);
+}
+
 void encolarLectura(const String& csv) {
+  if (!hayEspacioEnCola()) {
+    Serial.println(F("Cola de pendientes llena, no se guarda la lectura"));
+    return;
+  }
+
   File archivo = LittleFS.open(ARCHIVO_PENDIENTES, "a");
   if (!archivo) {
     Serial.println(F("No se pudo abrir la cola de pendientes para escribir"));
