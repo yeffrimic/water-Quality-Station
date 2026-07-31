@@ -262,7 +262,7 @@ void mostrarInstruccionesWiFi(WiFiManager* wm) {
   display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
   display.println(APP_TITLE);
 
-  String lineaConectate = "1. Con";
+  String lineaConectate = "1.Con";
   lineaConectate += TILDE_E;
   lineaConectate += "ctate a la red:";
   display.setCursor(0, 12);
@@ -270,10 +270,10 @@ void mostrarInstruccionesWiFi(WiFiManager* wm) {
   display.setCursor(0, 22);
   display.println(wm->getConfigPortalSSID());
   display.setCursor(0, 33);
-  display.print(F("2. Entra a: "));
+  display.print(F("2.Entra a:"));
   display.println(apIP);
   display.setCursor(0, 44);
-  display.println(F("3. Ingresa los datos"));
+  display.println(F("3.Ingresa los datos"));
   display.setCursor(0, 54);
   display.println(F("   de tu red"));
 
