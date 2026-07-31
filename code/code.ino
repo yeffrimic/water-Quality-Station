@@ -606,7 +606,11 @@ void manejarBotonNav() {
   if (pantallaActual == PANTALLA_DATOS) {
     pantallaActual = PANTALLA_PENDIENTES;
   } else if (pantallaActual == PANTALLA_PENDIENTES) {
-    abrirPortalWifi();
+    if (client.connected()) {
+      pantallaActual = PANTALLA_DATOS;
+    } else {
+      abrirPortalWifi();
+    }
   } else {
     wifiManager.stopConfigPortal();
     pantallaActual = PANTALLA_DATOS;
