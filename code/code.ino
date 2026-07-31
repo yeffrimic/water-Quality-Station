@@ -167,8 +167,6 @@ void iniciarPantalla() {
     Serial.println(F("SH1106 allocation failed"));
     for (;;);
   }
-  display.display();          // Splash de Adafruit
-  delay(500);
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SH110X_WHITE);
