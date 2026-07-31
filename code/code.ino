@@ -65,8 +65,8 @@ static const unsigned char PROGMEM logo_bitmap[] = {
 };
 
 // ---------- Pines ----------
-#define BUTTON_PIN_START_STOP 26
-#define BUTTON_PIN_NAV 33
+#define BUTTON_PIN_START_STOP_T 26
+#define BUTTON_PIN_NAV_N 33
 #define BUZZER_PIN      4
 #define DS18B20_PIN     32
 #define ANALOG_PIN      34
@@ -140,8 +140,8 @@ void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, 16, 17);   // GPS en Serial2
 
-  pinMode(BUTTON_PIN_START_STOP, INPUT_PULLUP);
-  pinMode(BUTTON_PIN_NAV, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_START_STOP_T, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_NAV_N, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
 
   iniciarPantalla();
@@ -349,7 +349,7 @@ void mostrarPantallaError() {
 
 void esperarReinicio() {
   while (true) {
-    if (digitalRead(BUTTON_PIN_START_STOP) == LOW || digitalRead(BUTTON_PIN_NAV) == LOW) {
+    if (digitalRead(BUTTON_PIN_START_STOP_T) == LOW || digitalRead(BUTTON_PIN_NAV_N) == LOW) {
       ESP.restart();
     }
     delay(10);
@@ -393,12 +393,12 @@ void esperarDecisionSinInternet() {
   while (true) {
     leerGPS();
 
-    if (digitalRead(BUTTON_PIN_NAV) == LOW) {
+    if (digitalRead(BUTTON_PIN_NAV_N) == LOW) {
       delay(500);
       return;
     }
 
-    if (digitalRead(BUTTON_PIN_START_STOP) == LOW) {
+    if (digitalRead(BUTTON_PIN_START_STOP_T) == LOW) {
       delay(500);
       abrirPortalWifi();
       return;
@@ -548,7 +548,7 @@ void actualizarPantallaPendientes() {
 //  BOTONES
 // =====================================================
 void manejarBotones() {
-  if (digitalRead(BUTTON_PIN_START_STOP) == LOW) {
+  if (digitalRead(BUTTON_PIN_START_STOP_T) == LOW) {
     activo = !activo;
 
     if (activo) {
@@ -575,7 +575,7 @@ void abrirPortalWifi() {
 }
 
 void manejarBotonNav() {
-  if (digitalRead(BUTTON_PIN_NAV) != LOW) return;
+  if (digitalRead(BUTTON_PIN_NAV_N) != LOW) return;
 
   if (pantallaActual == PANTALLA_DATOS) {
     pantallaActual = PANTALLA_PENDIENTES;
