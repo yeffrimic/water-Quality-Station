@@ -81,6 +81,7 @@ static const unsigned char PROGMEM logo_bitmap[] = {
 const char* mqtt_server = "broker.mqttdashboard.com";
 const char* topic       = "/lagosabiertos/dispositivo";
 const long  interval    = 10000;   // Intervalo de envío: 10 s
+const unsigned long TIEMPO_MAX_INICIALIZACION = 60000;
 
 const char* APP_SITE = "lagosabiertos.org";
 const char* APP_TITLE = "Lagos Abiertos";
@@ -144,6 +145,13 @@ void setup() {
 
   WiFi.begin();
   client.setServer(mqtt_server, 1883);
+
+  esperarInicializacion();
+
+  if (!gps.location.isValid() && !client.connected()) {
+    mostrarPantallaError();
+    esperarReinicio();
+  }
 
   Serial.println(F("Setup completo"));
 }
@@ -234,6 +242,81 @@ void iniciarSensores() {
     while (1);
   }
   sensors.begin();            // DS18B20
+}
+
+void mostrarCuentaRegresiva(int segundosRestantes) {
+  display.clearDisplay();
+  display.setTextSize(1);
+
+  int16_t x1, y1;
+  uint16_t textW, textH;
+  display.getTextBounds(APP_TITLE, 0, 0, &x1, &y1, &textW, &textH);
+  display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
+  display.println(APP_TITLE);
+
+  display.setCursor(0, 20);
+  display.println(F("Iniciando..."));
+
+  display.setCursor(0, 40);
+  display.print(F("Tiempo restante: "));
+  display.print(segundosRestantes);
+  display.println(F("s"));
+
+  display.display();
+}
+
+void esperarInicializacion() {
+  unsigned long inicio = millis();
+  int ultimoSegundoMostrado = -1;
+
+  while (millis() - inicio < TIEMPO_MAX_INICIALIZACION) {
+    leerGPS();
+    reconnect();
+    client.loop();
+
+    int segundosRestantes = (TIEMPO_MAX_INICIALIZACION - (millis() - inicio)) / 1000 + 1;
+    if (segundosRestantes != ultimoSegundoMostrado) {
+      mostrarCuentaRegresiva(segundosRestantes);
+      ultimoSegundoMostrado = segundosRestantes;
+    }
+
+    if (gps.location.isValid() && client.connected()) {
+      return;
+    }
+
+    delay(10);
+  }
+}
+
+void mostrarPantallaError() {
+  display.clearDisplay();
+  display.setTextSize(1);
+
+  int16_t x1, y1;
+  uint16_t textW, textH;
+  display.getTextBounds(APP_TITLE, 0, 0, &x1, &y1, &textW, &textH);
+  display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
+  display.println(APP_TITLE);
+
+  display.setCursor(0, 20);
+  display.println(F("No se pudo obtener"));
+  display.setCursor(0, 30);
+  display.println(F("GPS ni conexion."));
+  display.setCursor(0, 45);
+  display.println(F("Presione cualquier"));
+  display.setCursor(0, 54);
+  display.println(F("boton para reiniciar"));
+
+  display.display();
+}
+
+void esperarReinicio() {
+  while (true) {
+    if (digitalRead(BUTTON_PIN_SEND) == LOW || digitalRead(BUTTON_PIN_STOP) == LOW) {
+      ESP.restart();
+    }
+    delay(10);
+  }
 }
 
 // =====================================================
