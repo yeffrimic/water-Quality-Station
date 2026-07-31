@@ -368,10 +368,26 @@ float leerPH() {
 // =====================================================
 //  PANTALLA
 // =====================================================
-void actualizarPantalla() {
-  display.clearDisplay();
+String construirTituloEstado() {
+  String tituloEstado = String(APP_TITLE);
 
-  String tituloEstado = String(APP_TITLE) + " (" + char(24) + (activo ? "Si" : "No") + ")";
+  if (activo) {
+    if (client.connected()) {
+      tituloEstado += " ";
+      tituloEstado += char(24);
+      tituloEstado += " WEB";
+    } else {
+      tituloEstado += " ";
+      tituloEstado += char(25);
+      tituloEstado += " MEM";
+    }
+  }
+
+  return tituloEstado;
+}
+
+void dibujarEncabezado() {
+  String tituloEstado = construirTituloEstado();
 
   int16_t x1, y1;
   uint16_t textW, textH;
@@ -379,15 +395,23 @@ void actualizarPantalla() {
   display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
   display.print(tituloEstado);
 
-  display.setCursor(0, 9);
+  display.drawFastHLine(0, 9, SCREEN_WIDTH, SH110X_WHITE);
+}
+
+void actualizarPantalla() {
+  display.clearDisplay();
+
+  dibujarEncabezado();
+
+  display.setCursor(0, 12);
   display.print(F("GPS lat: "));
   display.print(gps.location.lat(), 4);
 
-  display.setCursor(0, 18);
+  display.setCursor(0, 20);
   display.print(F("GPS long: "));
   display.print(gps.location.lng(), 4);
 
-  display.setCursor(0, 27);
+  display.setCursor(0, 28);
   display.print(F("Temp Amb: "));
   display.print(datos.tempAmb);
   display.print(F(" C"));
@@ -397,12 +421,12 @@ void actualizarPantalla() {
   display.print(datos.humAmb);
   display.print(F(" %"));
 
-  display.setCursor(0, 45);
+  display.setCursor(0, 44);
   display.print(F("Temp Agua: "));
   display.print(datos.tempAgua);
   display.print(F(" C"));
 
-  display.setCursor(0, 54);
+  display.setCursor(0, 52);
   display.print(F("PH: "));
   display.print(datos.ph);
 
