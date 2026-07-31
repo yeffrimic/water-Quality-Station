@@ -66,7 +66,7 @@ static const unsigned char PROGMEM logo_bitmap[] = {
 
 // ---------- Pines ----------
 #define BUTTON_PIN_START_STOP 26
-#define BUTTON_PIN_STOP 33
+#define BUTTON_PIN_NAV 33
 #define BUZZER_PIN      4
 #define DS18B20_PIN     32
 #define ANALOG_PIN      34
@@ -121,6 +121,9 @@ const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
 uint32_t sessionId = 0;
 bool activo = false;
 
+enum Pantalla { PANTALLA_DATOS, PANTALLA_PENDIENTES, PANTALLA_WIFI };
+Pantalla pantallaActual = PANTALLA_DATOS;
+
 // =====================================================
 //  SETUP
 // =====================================================
@@ -129,7 +132,7 @@ void setup() {
   Serial2.begin(9600, SERIAL_8N1, 16, 17);   // GPS en Serial2
 
   pinMode(BUTTON_PIN_START_STOP, INPUT_PULLUP);
-  pinMode(BUTTON_PIN_STOP, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_NAV, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
 
   iniciarPantalla();
@@ -161,12 +164,24 @@ void setup() {
 void loop() {
   leerGPS();
   leerSensores();
-  actualizarPantalla();
 
   if (!client.connected()) reconnect();
   client.loop();
 
   manejarBotones();
+  manejarBotonNav();
+
+  switch (pantallaActual) {
+    case PANTALLA_DATOS:
+      actualizarPantalla();
+      break;
+    case PANTALLA_PENDIENTES:
+      actualizarPantallaPendientes();
+      break;
+    case PANTALLA_WIFI:
+      wifiManager.process();
+      break;
+  }
 
   if (millis() - previousMillis >= interval) {
     previousMillis = millis();
@@ -322,7 +337,7 @@ void mostrarPantallaError() {
 
 void esperarReinicio() {
   while (true) {
-    if (digitalRead(BUTTON_PIN_START_STOP) == LOW || digitalRead(BUTTON_PIN_STOP) == LOW) {
+    if (digitalRead(BUTTON_PIN_START_STOP) == LOW || digitalRead(BUTTON_PIN_NAV) == LOW) {
       ESP.restart();
     }
     delay(10);
@@ -433,6 +448,28 @@ void actualizarPantalla() {
   display.display();
 }
 
+void actualizarPantallaPendientes() {
+  display.clearDisplay();
+
+  dibujarEncabezado();
+
+  int pendientes = contarPendientes();
+
+  display.setCursor(0, 20);
+  if (pendientes > 0) {
+    display.print(F("Pendientes: "));
+    display.print(pendientes);
+  } else if (activo && client.connected()) {
+    display.println(F("Transmision de"));
+    display.setCursor(0, 28);
+    display.print(F("datos activada"));
+  } else {
+    display.print(F("Sin pendientes"));
+  }
+
+  display.display();
+}
+
 // =====================================================
 //  BOTONES
 // =====================================================
@@ -454,6 +491,25 @@ void manejarBotones() {
 void iniciarNuevaSesion() {
   sessionId = preferences.getUInt("sessionId", 0) + 1;
   preferences.putUInt("sessionId", sessionId);
+}
+
+void manejarBotonNav() {
+  if (digitalRead(BUTTON_PIN_NAV) != LOW) return;
+
+  if (pantallaActual == PANTALLA_DATOS) {
+    pantallaActual = PANTALLA_PENDIENTES;
+  } else if (pantallaActual == PANTALLA_PENDIENTES) {
+    pantallaActual = PANTALLA_WIFI;
+    wifiManager.setConfigPortalBlocking(false);
+    wifiManager.startConfigPortal(AP_SSID);
+    mostrarInstruccionesWiFi(&wifiManager);
+  } else {
+    wifiManager.stopConfigPortal();
+    pantallaActual = PANTALLA_DATOS;
+  }
+
+  tone(BUZZER_PIN, 1500, 100);
+  delay(500);                    // Debounce
 }
 
 // =====================================================
