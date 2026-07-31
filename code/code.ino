@@ -20,7 +20,7 @@
 
 #include <WiFiManager.h>
 #include <PubSubClient.h>
-#include <EEPROM.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -72,7 +72,6 @@ static const unsigned char PROGMEM logo_bitmap[] = {
 #define SD_CS_PIN       5
 
 // ---------- Configuración ----------
-#define EEPROM_SIZE     4
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1      // Sin pin de reset dedicado
@@ -100,6 +99,7 @@ TinyGPSPlus gps;
 WiFiClient espClient;
 PubSubClient client(espClient);
 WiFiManager wifiManager;
+Preferences preferences;
 
 // ---------- Estado ----------
 struct Lecturas {
@@ -111,7 +111,7 @@ struct Lecturas {
 Lecturas datos;
 
 unsigned long previousMillis = 0;
-int  sendCount = 0;
+uint32_t sendCount = 0;
 bool isSending = false;
 
 // =====================================================
@@ -129,8 +129,8 @@ void setup() {
   mostrarTitulo();
   iniciarSensores();
 
-  EEPROM.begin(EEPROM_SIZE);
-  sendCount = EEPROM.read(0);
+  preferences.begin("wqstation", false);
+  sendCount = preferences.getUInt("sendCount", 0);
 
   wifiManager.setAPCallback(mostrarInstruccionesWiFi);
   wifiManager.autoConnect(AP_SSID);
@@ -361,8 +361,7 @@ void enviarDatos() {
 
   if (client.publish(topic, msg.c_str())) {
     sendCount++;
-    EEPROM.write(0, sendCount);
-    EEPROM.commit();
+    preferences.putUInt("sendCount", sendCount);
     Serial.print(F("Mensaje enviado exitosamente. Total de envios: "));
     Serial.println(sendCount);
   } else {
