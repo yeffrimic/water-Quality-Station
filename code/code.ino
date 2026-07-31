@@ -115,6 +115,8 @@ struct Lecturas {
 Lecturas datos;
 
 unsigned long previousMillis = 0;
+unsigned long mqttUltimoIntento = 0;
+const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
 uint32_t sendCount = 0;
 bool isSending = false;
 
@@ -140,8 +142,7 @@ void setup() {
     Serial.println(F("Error al montar LittleFS"));
   }
 
-  wifiManager.setAPCallback(mostrarInstruccionesWiFi);
-  wifiManager.autoConnect(AP_SSID);
+  WiFi.begin();
   client.setServer(mqtt_server, 1883);
 
   Serial.println(F("Setup completo"));
@@ -434,17 +435,20 @@ void enviarDatos() {
 }
 
 void reconnect() {
-  if (!client.connected()) {
-    Serial.print(F("Conectando al broker MQTT..."));
-    String clientId = "Ducuchu-" + String(random(0xffff), HEX);
+  if (client.connected()) return;
+  if (WiFi.status() != WL_CONNECTED) return;
 
-    if (client.connect(clientId.c_str())) {
-      Serial.println(F("conectado"));
-    } else {
-      Serial.print(F("fallo, rc="));
-      Serial.print(client.state());
-      Serial.println(F(" intentando de nuevo en 5 segundos"));
-      delay(5000);
-    }
+  unsigned long ahora = millis();
+  if (ahora - mqttUltimoIntento < MQTT_REINTENTO_INTERVALO) return;
+  mqttUltimoIntento = ahora;
+
+  Serial.print(F("Conectando al broker MQTT..."));
+  String clientId = "Ducuchu-" + String(random(0xffff), HEX);
+
+  if (client.connect(clientId.c_str())) {
+    Serial.println(F("conectado"));
+  } else {
+    Serial.print(F("fallo, rc="));
+    Serial.println(client.state());
   }
 }
