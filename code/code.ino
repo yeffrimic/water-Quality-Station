@@ -389,6 +389,8 @@ String construirTituloEstado() {
       tituloEstado += char(25);
       tituloEstado += " MEM";
     }
+  } else {
+    tituloEstado += " PAUSA";
   }
 
   return tituloEstado;
