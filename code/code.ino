@@ -65,7 +65,7 @@ static const unsigned char PROGMEM logo_bitmap[] = {
 };
 
 // ---------- Pines ----------
-#define BUTTON_PIN_SEND 26
+#define BUTTON_PIN_START_STOP 26
 #define BUTTON_PIN_STOP 33
 #define BUZZER_PIN      4
 #define DS18B20_PIN     32
@@ -118,8 +118,8 @@ Lecturas datos;
 unsigned long previousMillis = 0;
 unsigned long mqttUltimoIntento = 0;
 const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
-uint32_t sendCount = 0;
-bool isSending = false;
+uint32_t sessionId = 0;
+bool activo = false;
 
 // =====================================================
 //  SETUP
@@ -128,7 +128,7 @@ void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, 16, 17);   // GPS en Serial2
 
-  pinMode(BUTTON_PIN_SEND, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_START_STOP, INPUT_PULLUP);
   pinMode(BUTTON_PIN_STOP, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
 
@@ -137,7 +137,6 @@ void setup() {
   iniciarSensores();
 
   preferences.begin("wqstation", false);
-  sendCount = preferences.getUInt("sendCount", 0);
 
   if (!LittleFS.begin(true)) {
     Serial.println(F("Error al montar LittleFS"));
@@ -169,9 +168,20 @@ void loop() {
 
   manejarBotones();
 
-  if (isSending && millis() - previousMillis >= interval) {
+  if (millis() - previousMillis >= interval) {
     previousMillis = millis();
-    enviarDatos();
+
+    if (activo) {
+      if (client.connected()) {
+        enviarDatos();
+      } else {
+        guardarLecturaEnCola();
+      }
+    }
+
+    if (client.connected()) {
+      enviarPendientesEncolados();
+    }
   }
 }
 
@@ -312,7 +322,7 @@ void mostrarPantallaError() {
 
 void esperarReinicio() {
   while (true) {
-    if (digitalRead(BUTTON_PIN_SEND) == LOW || digitalRead(BUTTON_PIN_STOP) == LOW) {
+    if (digitalRead(BUTTON_PIN_START_STOP) == LOW || digitalRead(BUTTON_PIN_STOP) == LOW) {
       ESP.restart();
     }
     delay(10);
@@ -361,7 +371,7 @@ float leerPH() {
 void actualizarPantalla() {
   display.clearDisplay();
 
-  String tituloEstado = String(APP_TITLE) + " (" + char(24) + (isSending ? "Si" : "No") + ")";
+  String tituloEstado = String(APP_TITLE) + " (" + char(24) + (activo ? "Si" : "No") + ")";
 
   int16_t x1, y1;
   uint16_t textW, textH;
@@ -403,17 +413,23 @@ void actualizarPantalla() {
 //  BOTONES
 // =====================================================
 void manejarBotones() {
-  if (digitalRead(BUTTON_PIN_SEND) == LOW) {
-    isSending = true;
-    tone(BUZZER_PIN, 1000, 100);   // Tono de aceptación
-    delay(500);                    // Debounce
-  }
+  if (digitalRead(BUTTON_PIN_START_STOP) == LOW) {
+    activo = !activo;
 
-  if (digitalRead(BUTTON_PIN_STOP) == LOW) {
-    isSending = false;
-    tone(BUZZER_PIN, 500, 100);    // Tono de alerta
+    if (activo) {
+      iniciarNuevaSesion();
+      tone(BUZZER_PIN, 1000, 100);
+    } else {
+      tone(BUZZER_PIN, 500, 100);
+    }
+
     delay(500);                    // Debounce
   }
+}
+
+void iniciarNuevaSesion() {
+  sessionId = preferences.getUInt("sessionId", 0) + 1;
+  preferences.putUInt("sessionId", sessionId);
 }
 
 // =====================================================
@@ -475,7 +491,7 @@ bool enviarPendientesEncolados() {
 // =====================================================
 //  MQTT
 // =====================================================
-void enviarDatos() {
+String construirMensajeCSV() {
   // Timestamp a partir de fecha/hora del GPS
   tmElements_t tm;
   tm.Year   = gps.date.year() - 1970;
@@ -486,7 +502,7 @@ void enviarDatos() {
   tm.Second = gps.time.second();
   time_t timestamp = makeTime(tm);
 
-  // CSV: timestamp,lat,lng,alt,contador,tAgua,tAmb,hum,ph,mac
+  // CSV: timestamp,lat,lng,alt,sessionId,tAgua,tAmb,hum,ph,mac
   String msg = String(timestamp);
   msg += ",";
   msg += String(gps.location.lat(), 5);    // 5 decimales (~1.1 m de precisión)
@@ -495,7 +511,7 @@ void enviarDatos() {
   msg += ",";
   msg += String(gps.altitude.meters());
   msg += ",";
-  msg += String(sendCount);
+  msg += String(sessionId);
   msg += ",";
   msg += String(datos.tempAgua);
   msg += ",";
@@ -507,14 +523,23 @@ void enviarDatos() {
   msg += ",";
   msg += WiFi.macAddress();
 
+  return msg;
+}
+
+void enviarDatos() {
+  String msg = construirMensajeCSV();
+
   if (client.publish(topic, msg.c_str())) {
-    sendCount++;
-    preferences.putUInt("sendCount", sendCount);
-    Serial.print(F("Mensaje enviado exitosamente. Total de envios: "));
-    Serial.println(sendCount);
+    Serial.println(F("Mensaje enviado exitosamente."));
   } else {
-    Serial.println(F("Error al enviar el mensaje"));
+    Serial.println(F("Error al enviar el mensaje, se guarda en cola"));
+    encolarLectura(msg);
   }
+}
+
+void guardarLecturaEnCola() {
+  String msg = construirMensajeCSV();
+  encolarLectura(msg);
 }
 
 void reconnect() {
