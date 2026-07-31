@@ -88,6 +88,10 @@ const char* APP_SITE = "lagosabiertos.org";
 const char* APP_TITLE = "Lagos Abiertos";
 const char* AP_SSID    = "Lagos Abiertos";  // Red de configuración WiFi
 
+// Caracteres acentuados (código de página 437, la fuente que usa Adafruit_GFX)
+const char TILDE_E = 0x82;  // é
+const char TILDE_O = 0xA2;  // ó
+
 const char* ARCHIVO_PENDIENTES = "/pendientes.csv";
 const char* ARCHIVO_PENDIENTES_TMP = "/pendientes.tmp";
 const size_t MARGEN_MINIMO_LIBRE = 2048;
@@ -258,8 +262,11 @@ void mostrarInstruccionesWiFi(WiFiManager* wm) {
   display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
   display.println(APP_TITLE);
 
+  String lineaConectate = "1. Con";
+  lineaConectate += TILDE_E;
+  lineaConectate += "ctate a la red:";
   display.setCursor(0, 12);
-  display.println(F("1. Conectate a la red:"));
+  display.println(lineaConectate);
   display.setCursor(0, 22);
   display.println(wm->getConfigPortalSSID());
   display.setCursor(0, 33);
@@ -320,14 +327,22 @@ void mostrarPantallaError() {
   display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
   display.println(APP_TITLE);
 
+  String lineaConexion = "GPS ni conexi";
+  lineaConexion += TILDE_O;
+  lineaConexion += "n.";
+
+  String lineaBoton = "bot";
+  lineaBoton += TILDE_O;
+  lineaBoton += "n para reiniciar";
+
   display.setCursor(0, 20);
   display.println(F("No se pudo obtener"));
   display.setCursor(0, 30);
-  display.println(F("GPS ni conexion."));
+  display.println(lineaConexion);
   display.setCursor(0, 45);
   display.println(F("Presione cualquier"));
   display.setCursor(0, 54);
-  display.println(F("boton para reiniciar"));
+  display.println(lineaBoton);
 
   display.display();
 }
@@ -358,12 +373,16 @@ void mostrarPantallaSinInternet() {
   display.setCursor(0, 28);
   display.println(F("internet."));
 
+  String lineaConexion = "conexi";
+  lineaConexion += TILDE_O;
+  lineaConexion += "n.";
+
   display.setCursor(0, 40);
   display.println(F("Presiona \"T\" para ver"));
   display.setCursor(0, 48);
   display.println(F("instrucciones de"));
   display.setCursor(0, 56);
-  display.println(F("conexion."));
+  display.println(lineaConexion);
 
   display.display();
 }
@@ -507,7 +526,10 @@ void actualizarPantallaPendientes() {
     display.print(F("Pendientes: "));
     display.print(pendientes);
   } else if (activo && client.connected()) {
-    display.println(F("Transmision de"));
+    String lineaTransmision = "Transmisi";
+    lineaTransmision += TILDE_O;
+    lineaTransmision += "n de";
+    display.println(lineaTransmision);
     display.setCursor(0, 28);
     display.print(F("datos activada"));
   } else {
@@ -706,7 +728,7 @@ void reconnect() {
   if (client.connect(clientId.c_str())) {
     Serial.println(F("conectado"));
   } else {
-    Serial.print(F("fallo, rc="));
+    Serial.print(F("falló, rc="));
     Serial.println(client.state());
   }
 }
