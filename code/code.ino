@@ -82,6 +82,7 @@ const char* mqtt_server = "broker.mqttdashboard.com";
 const char* topic       = "/lagosabiertos/dispositivo";
 const long  interval    = 10000;   // Intervalo de envío: 10 s
 const unsigned long TIEMPO_MAX_INICIALIZACION = 60000;
+const unsigned long TIEMPO_MIN_LOGO = 2000;
 
 const char* APP_SITE = "lagosabiertos.org";
 const char* APP_TITLE = "Lagos Abiertos";
@@ -140,7 +141,6 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
 
   iniciarPantalla();
-  mostrarTitulo();
   iniciarSensores();
 
   preferences.begin("wqstation", false);
@@ -152,7 +152,7 @@ void setup() {
   WiFi.begin();
   client.setServer(mqtt_server, 1883);
 
-  esperarInicializacion();
+  mostrarLogoEInicializar();
 
   if (!gps.location.isValid() && !client.connected()) {
     mostrarPantallaError();
@@ -219,7 +219,7 @@ void iniciarPantalla() {
   display.setTextColor(SH110X_WHITE);
 }
 
-void mostrarTitulo() {
+void dibujarPantallaLogo(int segundosRestantes) {
   display.clearDisplay();
 
   int logoX = (SCREEN_WIDTH - LOGO_WIDTH) / 2;
@@ -229,12 +229,15 @@ void mostrarTitulo() {
   int16_t x1, y1;
   uint16_t textW, textH;
   display.getTextBounds(APP_SITE, 0, 0, &x1, &y1, &textW, &textH);
-  display.setCursor((SCREEN_WIDTH - textW) / 2, 52);
+  display.setCursor((SCREEN_WIDTH - textW) / 2, 48);
   display.print(APP_SITE);
 
+  String textoInicio = "Iniciando (" + String(segundosRestantes) + "s)";
+  display.getTextBounds(textoInicio, 0, 0, &x1, &y1, &textW, &textH);
+  display.setCursor((SCREEN_WIDTH - textW) / 2, 56);
+  display.print(textoInicio);
+
   display.display();
-  delay(2000);
-  display.clearDisplay();
 }
 
 // Se ejecuta automáticamente cuando WiFiManager no logra conectarse a una
@@ -274,43 +277,28 @@ void iniciarSensores() {
   sensors.begin();            // DS18B20
 }
 
-void mostrarCuentaRegresiva(int segundosRestantes) {
-  display.clearDisplay();
-  display.setTextSize(1);
-
-  int16_t x1, y1;
-  uint16_t textW, textH;
-  display.getTextBounds(APP_TITLE, 0, 0, &x1, &y1, &textW, &textH);
-  display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
-  display.println(APP_TITLE);
-
-  display.setCursor(0, 20);
-  display.println(F("Iniciando..."));
-
-  display.setCursor(0, 40);
-  display.print(F("Tiempo restante: "));
-  display.print(segundosRestantes);
-  display.println(F("s"));
-
-  display.display();
-}
-
-void esperarInicializacion() {
+void mostrarLogoEInicializar() {
   unsigned long inicio = millis();
   int ultimoSegundoMostrado = -1;
 
-  while (millis() - inicio < TIEMPO_MAX_INICIALIZACION) {
+  while (true) {
+    unsigned long transcurrido = millis() - inicio;
+
     leerGPS();
     reconnect();
     client.loop();
 
-    int segundosRestantes = (TIEMPO_MAX_INICIALIZACION - (millis() - inicio)) / 1000 + 1;
+    int segundosRestantes = (TIEMPO_MAX_INICIALIZACION - transcurrido) / 1000 + 1;
     if (segundosRestantes != ultimoSegundoMostrado) {
-      mostrarCuentaRegresiva(segundosRestantes);
+      dibujarPantallaLogo(segundosRestantes);
       ultimoSegundoMostrado = segundosRestantes;
     }
 
-    if (gps.location.isValid() && client.connected()) {
+    bool listo = gps.location.isValid() && client.connected();
+    if (listo && transcurrido >= TIEMPO_MIN_LOGO) {
+      return;
+    }
+    if (transcurrido >= TIEMPO_MAX_INICIALIZACION) {
       return;
     }
 
