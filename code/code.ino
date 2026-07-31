@@ -122,6 +122,8 @@ struct Lecturas {
 };
 Lecturas datos;
 
+String macAddress;
+
 unsigned long previousMillis = 0;
 unsigned long mqttUltimoIntento = 0;
 const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
@@ -154,6 +156,7 @@ void setup() {
   }
 
   WiFi.begin();
+  macAddress = WiFi.macAddress();
   client.setServer(mqtt_server, 1883);
 
   mostrarLogoEInicializar();
@@ -663,7 +666,17 @@ bool enviarPendientesEncolados() {
 // =====================================================
 //  MQTT
 // =====================================================
+const char* MAC_INVALIDA = "00:00:00:00:00:00";
+
+void actualizarMacAddress() {
+  if (macAddress == MAC_INVALIDA || macAddress.length() == 0) {
+    macAddress = WiFi.macAddress();
+  }
+}
+
 String construirMensajeCSV() {
+  actualizarMacAddress();
+
   // Timestamp a partir de fecha/hora del GPS
   tmElements_t tm;
   tm.Year   = gps.date.year() - 1970;
@@ -693,7 +706,7 @@ String construirMensajeCSV() {
   msg += ",";
   msg += String(datos.ph);
   msg += ",";
-  msg += WiFi.macAddress();
+  msg += macAddress;
 
   return msg;
 }
