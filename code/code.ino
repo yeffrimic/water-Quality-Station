@@ -154,7 +154,11 @@ void setup() {
 
   mostrarLogoEInicializar();
 
-  if (!gps.location.isValid() && !client.connected()) {
+  if (!client.connected()) {
+    esperarDecisionSinInternet();
+  }
+
+  if (pantallaActual != PANTALLA_WIFI && !gps.location.isValid() && !client.connected()) {
     mostrarPantallaError();
     esperarReinicio();
   }
@@ -337,6 +341,54 @@ void esperarReinicio() {
   }
 }
 
+void mostrarPantallaSinInternet() {
+  display.clearDisplay();
+  display.setTextSize(1);
+
+  int16_t x1, y1;
+  uint16_t textW, textH;
+  display.getTextBounds(APP_TITLE, 0, 0, &x1, &y1, &textW, &textH);
+  display.setCursor((SCREEN_WIDTH - textW) / 2, 0);
+  display.println(APP_TITLE);
+
+  display.setCursor(0, 12);
+  display.println(F("Presiona \"N\" para"));
+  display.setCursor(0, 20);
+  display.println(F("continuar sin"));
+  display.setCursor(0, 28);
+  display.println(F("internet."));
+
+  display.setCursor(0, 40);
+  display.println(F("Presiona \"T\" para ver"));
+  display.setCursor(0, 48);
+  display.println(F("instrucciones de"));
+  display.setCursor(0, 56);
+  display.println(F("conexion."));
+
+  display.display();
+}
+
+void esperarDecisionSinInternet() {
+  mostrarPantallaSinInternet();
+
+  while (true) {
+    leerGPS();
+
+    if (digitalRead(BUTTON_PIN_NAV) == LOW) {
+      delay(500);
+      return;
+    }
+
+    if (digitalRead(BUTTON_PIN_START_STOP) == LOW) {
+      delay(500);
+      abrirPortalWifi();
+      return;
+    }
+
+    delay(10);
+  }
+}
+
 // =====================================================
 //  LECTURAS
 // =====================================================
@@ -493,16 +545,20 @@ void iniciarNuevaSesion() {
   preferences.putUInt("sessionId", sessionId);
 }
 
+void abrirPortalWifi() {
+  pantallaActual = PANTALLA_WIFI;
+  wifiManager.setConfigPortalBlocking(false);
+  wifiManager.startConfigPortal(AP_SSID);
+  mostrarInstruccionesWiFi(&wifiManager);
+}
+
 void manejarBotonNav() {
   if (digitalRead(BUTTON_PIN_NAV) != LOW) return;
 
   if (pantallaActual == PANTALLA_DATOS) {
     pantallaActual = PANTALLA_PENDIENTES;
   } else if (pantallaActual == PANTALLA_PENDIENTES) {
-    pantallaActual = PANTALLA_WIFI;
-    wifiManager.setConfigPortalBlocking(false);
-    wifiManager.startConfigPortal(AP_SSID);
-    mostrarInstruccionesWiFi(&wifiManager);
+    abrirPortalWifi();
   } else {
     wifiManager.stopConfigPortal();
     pantallaActual = PANTALLA_DATOS;
