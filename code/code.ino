@@ -32,6 +32,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <TimeLib.h>
+#include <LittleFS.h>
 
 // ---------- Logo "Lagos Abiertos" (48x48 px, contornos, 1 bit/pixel) ----------
 #define LOGO_WIDTH  48
@@ -85,6 +86,9 @@ const char* APP_SITE = "lagosabiertos.org";
 const char* APP_TITLE = "Lagos Abiertos";
 const char* AP_SSID    = "Lagos Abiertos";  // Red de configuración WiFi
 
+const char* ARCHIVO_PENDIENTES = "/pendientes.csv";
+const char* ARCHIVO_PENDIENTES_TMP = "/pendientes.tmp";
+
 // Calibración pH (valores ADC medidos)
 const int ADC_PH4  = 2523;
 const int ADC_PH7  = 2100;
@@ -131,6 +135,10 @@ void setup() {
 
   preferences.begin("wqstation", false);
   sendCount = preferences.getUInt("sendCount", 0);
+
+  if (!LittleFS.begin(true)) {
+    Serial.println(F("Error al montar LittleFS"));
+  }
 
   wifiManager.setAPCallback(mostrarInstruccionesWiFi);
   wifiManager.autoConnect(AP_SSID);
@@ -322,6 +330,62 @@ void manejarBotones() {
     tone(BUZZER_PIN, 500, 100);    // Tono de alerta
     delay(500);                    // Debounce
   }
+}
+
+// =====================================================
+//  COLA DE PENDIENTES (LittleFS)
+// =====================================================
+void encolarLectura(const String& csv) {
+  File archivo = LittleFS.open(ARCHIVO_PENDIENTES, "a");
+  if (!archivo) {
+    Serial.println(F("No se pudo abrir la cola de pendientes para escribir"));
+    return;
+  }
+  archivo.println(csv);
+  archivo.close();
+}
+
+int contarPendientes() {
+  File archivo = LittleFS.open(ARCHIVO_PENDIENTES, "r");
+  if (!archivo) return 0;
+
+  int contador = 0;
+  while (archivo.available()) {
+    if (archivo.readStringUntil('\n').length() > 0) contador++;
+  }
+  archivo.close();
+  return contador;
+}
+
+bool enviarPendientesEncolados() {
+  File origen = LittleFS.open(ARCHIVO_PENDIENTES, "r");
+  if (!origen) return false;
+
+  String primeraLinea = origen.readStringUntil('\n');
+  if (primeraLinea.length() == 0) {
+    origen.close();
+    return false;
+  }
+
+  if (!client.publish(topic, primeraLinea.c_str())) {
+    origen.close();
+    return false;
+  }
+
+  File temporal = LittleFS.open(ARCHIVO_PENDIENTES_TMP, "w");
+  if (!temporal) {
+    origen.close();
+    return false;
+  }
+  while (origen.available()) {
+    temporal.println(origen.readStringUntil('\n'));
+  }
+  origen.close();
+  temporal.close();
+
+  LittleFS.remove(ARCHIVO_PENDIENTES);
+  LittleFS.rename(ARCHIVO_PENDIENTES_TMP, ARCHIVO_PENDIENTES);
+  return true;
 }
 
 // =====================================================
