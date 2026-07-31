@@ -127,6 +127,9 @@ String macAddress;
 unsigned long previousMillis = 0;
 unsigned long mqttUltimoIntento = 0;
 const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
+unsigned long ultimaSolicitudTemp = 0;
+bool solicitudTempPendiente = false;
+unsigned long tiempoConversionDS18B20 = 750;
 unsigned long ultimoDrenado = 0;
 const unsigned long DRENADO_INTERVALO = 2000;
 uint32_t sessionId = 0;
@@ -289,6 +292,8 @@ void iniciarSensores() {
     while (1);
   }
   sensors.begin();            // DS18B20
+  sensors.setWaitForConversion(false);
+  tiempoConversionDS18B20 = sensors.millisToWaitForConversion();
 }
 
 void mostrarLogoEInicializar() {
@@ -426,8 +431,17 @@ void leerSensores() {
   datos.tempAmb = temp.temperature;
   datos.humAmb  = humidity.relative_humidity;
 
-  sensors.requestTemperatures();
-  datos.tempAgua = sensors.getTempCByIndex(0);
+  if (!solicitudTempPendiente) {
+    sensors.requestTemperatures();
+    ultimaSolicitudTemp = millis();
+    solicitudTempPendiente = true;
+  } else if (millis() - ultimaSolicitudTemp >= tiempoConversionDS18B20) {
+    float lectura = sensors.getTempCByIndex(0);
+    if (lectura != DEVICE_DISCONNECTED_C) {
+      datos.tempAgua = lectura;
+    }
+    solicitudTempPendiente = false;
+  }
 
   datos.ph = leerPH();
 }
