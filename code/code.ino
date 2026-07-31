@@ -118,6 +118,8 @@ Lecturas datos;
 unsigned long previousMillis = 0;
 unsigned long mqttUltimoIntento = 0;
 const unsigned long MQTT_REINTENTO_INTERVALO = 5000;
+unsigned long ultimoDrenado = 0;
+const unsigned long DRENADO_INTERVALO = 2000;
 uint32_t sessionId = 0;
 bool activo = false;
 
@@ -183,6 +185,11 @@ void loop() {
       break;
   }
 
+  if (client.connected() && millis() - ultimoDrenado >= DRENADO_INTERVALO) {
+    ultimoDrenado = millis();
+    enviarPendientesEncolados();
+  }
+
   if (millis() - previousMillis >= interval) {
     previousMillis = millis();
 
@@ -192,10 +199,6 @@ void loop() {
       } else {
         guardarLecturaEnCola();
       }
-    }
-
-    if (client.connected()) {
-      enviarPendientesEncolados();
     }
   }
 }
