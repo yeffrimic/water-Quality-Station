@@ -98,9 +98,9 @@ const size_t MARGEN_MINIMO_LIBRE = 2048;
 const float UMBRAL_COLA_LLENA = 0.90;
 
 // Calibración pH (valores ADC medidos, recalibrado 2026-07-31 tras rehidratar la sonda)
-const int ADC_PH4    = 3673;  // buffer pH 4.00
-const int ADC_PH7    = 3233;  // buffer pH 7.00
-const int ADC_PH9_18 = 2929;  // buffer pH 9.18
+const int ADC_PH4    = 3821;  // buffer pH 4.00
+const int ADC_PH7    = 3373;  // buffer pH 7.00
+const int ADC_PH9_18 = 2989;  // buffer pH 9.18
 const float PH_MIN_VALIDO = 0.0;
 const float PH_MAX_VALIDO = 14.0;
 
