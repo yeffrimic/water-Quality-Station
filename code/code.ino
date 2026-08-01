@@ -16,6 +16,36 @@
  *   - Si no hay WiFi guardado/disponible, la pantalla muestra las
  *     instrucciones de conexión (red de configuración e IP del portal)
  *     en vez de quedar en blanco esperando.
+ * Cambios v5:
+ *   - Diagnóstico y corrección de la lectura de pH, que siempre daba 0.
+ *     Causa: la sonda estuvo varios meses sin líquido interno y quedó
+ *     descalibrada; el ADC crudo ya no coincidía con ninguna de las
+ *     constantes de calibración (ADC_PH4/7/10), así que leerPH() devolvía
+ *     valores fuera de [0,14] y el filtro añadido en el commit anterior
+ *     ("Added a check on ph values to avoid faulty data") rechazaba
+ *     siempre la lectura, dejando datos.ph congelado en su valor inicial.
+ *   - Se rehidrató la sonda y se recalibró con 3 buffers reales
+ *     (pH 4.00 / 7.00 / 9.18, ver constantes ADC_PH4/ADC_PH7/ADC_PH9_18).
+ *     La fórmula de leerPH() se simplificó a 2 tramos usando esos valores
+ *     exactos de pH en vez de asumir 4/7/10; se eliminó el tramo de
+ *     extrapolación hacia pH 15 que tenía la pendiente invertida.
+ *   - Se agregó un Serial.printf en leerPH() con el ADC crudo y el pH
+ *     calculado, para poder diagnosticar la sonda por monitor serie
+ *     sin depender de lo que se ve en pantalla/MQTT.
+ *   - Corregido bug de acumulación de '\r' en la cola de pendientes
+ *     (LittleFS): encolarLectura() escribe cada línea con println()
+ *     ("...\r\n"), pero enviarPendientesEncolados() leía con
+ *     readStringUntil('\n'), que no quita el '\r'. Al reencolar los
+ *     mensajes no enviados con println() de nuevo, cada ciclo sin éxito
+ *     de envío sumaba un '\r' extra al final de la línea (visible en el
+ *     campo de MAC address, el último del CSV). Se agregó .trim() a las
+ *     líneas leídas en contarPendientes() y enviarPendientesEncolados()
+ *     para que no se acumulen.
+ *   - NOTA: la sonda de pH puede seguir "asentándose" unos días después
+ *     de la rehidratación; si las lecturas siguen corriéndose respecto
+ *     a los buffers de calibración, repetir la calibración de 3 puntos
+ *     (enjuagando con agua destilada entre cada buffer) hasta que los
+ *     valores de ADC se mantengan estables de una calibración a otra.
  */
 
 #include <WiFiManager.h>
@@ -654,7 +684,9 @@ int contarPendientes() {
 
   int contador = 0;
   while (archivo.available()) {
-    if (archivo.readStringUntil('\n').length() > 0) contador++;
+    String linea = archivo.readStringUntil('\n');
+    linea.trim();
+    if (linea.length() > 0) contador++;
   }
   archivo.close();
   return contador;
@@ -665,6 +697,7 @@ bool enviarPendientesEncolados() {
   if (!origen) return false;
 
   String primeraLinea = origen.readStringUntil('\n');
+  primeraLinea.trim();
   if (primeraLinea.length() == 0) {
     origen.close();
     return false;
@@ -681,7 +714,9 @@ bool enviarPendientesEncolados() {
     return false;
   }
   while (origen.available()) {
-    temporal.println(origen.readStringUntil('\n'));
+    String linea = origen.readStringUntil('\n');
+    linea.trim();
+    if (linea.length() > 0) temporal.println(linea);
   }
   origen.close();
   temporal.close();
