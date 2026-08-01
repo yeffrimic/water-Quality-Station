@@ -97,10 +97,10 @@ const char* ARCHIVO_PENDIENTES_TMP = "/pendientes.tmp";
 const size_t MARGEN_MINIMO_LIBRE = 2048;
 const float UMBRAL_COLA_LLENA = 0.90;
 
-// Calibración pH (valores ADC medidos)
-const int ADC_PH4  = 2523;
-const int ADC_PH7  = 2100;
-const int ADC_PH10 = 1973;
+// Calibración pH (valores ADC medidos, recalibrado 2026-07-31 tras rehidratar la sonda)
+const int ADC_PH4    = 3673;  // buffer pH 4.00
+const int ADC_PH7    = 3233;  // buffer pH 7.00
+const int ADC_PH9_18 = 2929;  // buffer pH 9.18
 const float PH_MIN_VALIDO = 0.0;
 const float PH_MAX_VALIDO = 14.0;
 
@@ -460,13 +460,14 @@ float leerPH() {
   float phValue;
 
   // Interpolación lineal por tramos entre puntos de calibración
-  if (adcValue <= ADC_PH10) {
-    phValue = 10 + (15 - 10) * ((float)(adcValue - ADC_PH10) / (4098 - ADC_PH10));
-  } else if (adcValue <= ADC_PH7) {
-    phValue = 7 + (10 - 7) * ((float)(adcValue - ADC_PH7) / (ADC_PH10 - ADC_PH7));
+  if (adcValue >= ADC_PH7) {
+    phValue = 4.00 + (7.00 - 4.00) * ((float)(adcValue - ADC_PH4) / (ADC_PH7 - ADC_PH4));
   } else {
-    phValue = 4 + (7 - 4) * ((float)(adcValue - ADC_PH4) / (ADC_PH7 - ADC_PH4));
+    phValue = 7.00 + (9.18 - 7.00) * ((float)(adcValue - ADC_PH7) / (ADC_PH9_18 - ADC_PH7));
   }
+
+  Serial.printf("[PH] adcValue=%d  phCalculado=%.2f\n", adcValue, phValue);
+
   return phValue;
 }
 
